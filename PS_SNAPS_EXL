@@ -1,0 +1,29 @@
+# Prompt for vCenter credentials
+$cred = Get-Credential
+
+# Connect to vCenter
+Connect-VIServer -Server <vCenter server> -Credential $cred
+
+# Initialize array to store snapshot information
+$snapshotsRemoved = @()
+
+# Remove snapshots that are over 1 week old
+$weekAgo = (Get-Date).AddDays(-7)
+Get-VM | Get-Snapshot | Where-Object {$_.Created -lt $weekAgo} | ForEach-Object {
+    $snapshot = $_
+    $vmName = $snapshot.VM.Name
+    $snapshotName = $snapshot.Name
+    $snapshot | Remove-Snapshot -Confirm:$false
+    $snapshotsRemoved += [PSCustomObject]@{
+        VMName = $vmName
+        SnapshotName = $snapshotName
+    }
+}
+
+# Export snapshot information to Excel
+$dateString = Get-Date -Format "yyyy-MM-dd"
+$filePath = "C:\SnapshotsRemoved_$dateString.xlsx"
+$snapshotsRemoved | Export-Excel $filePath -NoTypeInformation
+
+# Disconnect from vCenter
+Disconnect-VIServer -Server <vCenter server> -Confirm:$false
